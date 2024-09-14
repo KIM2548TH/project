@@ -11,5 +11,4 @@ def main():
 
 
 
-    "kim nah hee"
     
