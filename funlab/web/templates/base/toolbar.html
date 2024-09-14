@@ -41,7 +41,11 @@
         <a class="item" href="{{ url_for('dashboard.index') }}">Dashboard</a>
         <a class="item" href="{{ url_for('accounts.logout') }}">Logout</a>
       {% else %}
-        <a class="item" href="{{ url_for('accounts.login') }}">Login</a>
+        <a class="item" href="{{ url_for('accounts.login') }}">Login</a> <a class="item" href="{{ url_for('accounts.register') }}">Register</a>
+        <div class="ui icon input">
+          <input type="text" placeholder="Search...">
+          <i class="search link icon"></i>
+        </div>
       {% endif %}
        </div>
     </div>

@@ -1,2 +1,0 @@
-MONGODB_DB = "funlabdb"
-SECRET_KEY = "changethis"
