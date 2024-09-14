@@ -13,6 +13,7 @@ class RegisterForm(FlaskForm):
             validators.DataRequired("Username is required."),
             validators.Length(min=1),
         ],
+        render_kw={"placeholder": "ชื่อผู้ใช้", "autocomplete": "Username"},
     )
     input_password = fields.PasswordField(
         "รหัสผ่าน",
