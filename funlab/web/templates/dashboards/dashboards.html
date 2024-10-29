@@ -1,0 +1,273 @@
+{% extends "/base/default-page.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/formatic/1.0.0/formatic.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    body {
+        background-color: #001f3f;
+        color: white;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    h1 {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .container {
+        display: flex;
+        justify-content: space-between;
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 20px;
+        gap: 20px;
+    }
+
+    .form-container, .info-container {
+        background-color: #003366;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        flex: 1;
+    }
+
+    .form-container {
+        flex: 2;
+    }
+
+    .info-container {
+        flex: 1;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+        border: 2px solid #fff;
+        border-radius: 10px;
+        padding: 10px;
+    }
+
+    select,
+    input[type="submit"] {
+        width: 80%;
+        border-radius: 5px;
+        border: none;
+        padding: 10px;
+        background-color: #fff;
+        color: #000;
+    }
+
+    input[type="submit"] {
+        background-color: #0056b3;
+        color: white;
+        cursor: pointer;
+    }
+
+    input[type="submit"]:hover {
+        background-color: #004494;
+    }
+
+    .increase {
+        color: red;
+    }
+
+    .decrease {
+        color: green;
+    }
+
+    canvas {
+        margin-top: 20px;
+    }
+
+    .prediction-label {
+        font-weight: bold;
+        color: white;
+    }
+
+    .chart-title {
+        text-align: center;
+        color: white;
+        margin-bottom: 20px;
+    }
+
+    .chart-section {
+        flex: 2;
+    }
+</style>
+
+<div class="container">
+    <div class="form-container">
+        <form method="POST" action="{{ url_for('dashboard.index') }}">
+            <div class="form-group">
+                <label for="year">เลือกปีที่จะทำนาย:</label>
+                <select id="year" name="year" value="{{ year if year }}" required>
+                    <option value="" disabled selected>-- เลือกปี --</option>
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="provinceSelect1">เลือกจังหวัดแรก:</label>
+                <select id="provinceSelect1" name="province1" required>
+                    <option value="" disabled selected>-- เลือกจังหวัด --</option>
+                    <option value="นครศรีธรรมราช">ประเทศ</option>
+                    <option value="กรุงเทพมหานคร">กรุงเทพมหานคร</option>
+                    <option value="สงขลา">สงขลา</option>
+                    <option value="นครศรีธรรมราช">นครศรีธรรมราช</option>
+                </select>
+            </div>
+            <input type="submit" value="ส่งข้อมูล">
+        </form>
+    </div>
+
+    <div class="chart-section">
+        <div class="chart-title">
+            <h3>กราฟค่าครองชีพ รายครัวเรือน </h3>
+        </div>
+        <canvas id="myChart" width="1000" height="500"></canvas>
+    </div>
+
+    <div class="info-container">
+        <h3 class="prediction-label">แนวโน้มอนาคต</h3>
+        <p id="foodPrediction"></p>
+        <p id="housePrediction"></p>
+        <p id="walkPrediction"></p>
+    </div>
+</div>
+
+<script>
+    const data = JSON.parse('{{ data | tojson | safe }}');
+    console.log(data);
+
+    // Updated function to calculate difference using the formula (endYear[-1]/100) * realData
+    function calculateDifference(preData, startYear, endYear, realData) {
+        const endIndex = endYear - 2001;
+        const startIndex = startYear - 2001;
+
+        if (endIndex < 0 || endIndex >= preData.length) {
+            return { difference: 0, isIncrease: false, prediction: 0 };
+        }
+
+        const endPre = preData[endIndex];
+        const startPre = preData[startIndex];
+
+        if (isNaN(startPre) || isNaN(endPre)) {
+            return { difference: 0, isIncrease: false, prediction: 0 };
+        }
+
+        // Use (endPre / 100) * realData for the prediction calculation
+        const realLastValue = realData[realData.length - 1];
+        const prediction = (endPre / 100) * realLastValue;
+
+        return {
+            difference: endPre - startPre,
+            isIncrease: endPre > startPre, // Check if it increased based on whether the value is positive
+            prediction: prediction
+        };
+    }
+
+    function displayPrediction(difference, prediction, elementId, label) {
+    const element = document.getElementById(elementId);
+    const colorClass = difference.isIncrease ? 'increase' : 'decrease';
+    
+    // ปรับคำที่จะแสดงตามทิศทางของกราฟ
+    const changeText = difference.isIncrease ? 'เพิ่ม' : 'ลด';
+    
+    element.innerHTML = `<span>${label}</span>: ${difference.difference.toFixed(2)} (<span class="${colorClass}">${changeText}</span>) | THB: ${prediction.toFixed(2)}`;
+}
+
+
+    const startYear = 2023;
+    const endYear = data.list_pre_year[data.list_pre_year.length - 1];
+
+    const foodDiff = calculateDifference(data.list_pre_thai_food, startYear, endYear, data.list_real_thai_living);
+    const houseDiff = calculateDifference(data.list_pre_thai_house, startYear, endYear, data.list_real_thai_living);
+    const walkDiff = calculateDifference(data.list_pre_thai_walk, startYear, endYear, data.list_real_thai_living);
+
+    displayPrediction(foodDiff, foodDiff.prediction, 'foodPrediction', 'ค่าอาหารปีทำนาย%');
+    displayPrediction(houseDiff, houseDiff.prediction, 'housePrediction', 'ค่าที่พักปีทำนาย%');
+    displayPrediction(walkDiff, walkDiff.prediction, 'walkPrediction', 'ค่าเดินทางปีทำนาย%');
+
+    if (data.list_pre_year.length === 1) {
+        const startYear = 2001;
+        const endYear = data.list_pre_year[0];
+        data.list_pre_year = Array.from({ length: endYear - startYear + 1 }, (v, i) => i + startYear);
+    }
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.list_pre_year,
+            datasets: [
+                {
+                    label: 'list_real_thai_food',
+                    data: data.list_real_thai_food,
+                    backgroundColor: 'rgba(75, 192, 192, 1)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderDash: [5, 5],
+                    borderWidth: 2
+                },
+                {
+                    label: 'list_pre_thai_food',
+                    data: data.list_pre_thai_food,
+                    backgroundColor: 'rgba(75, 192, 192, 1)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: 'list_real_thai_house',
+                    data: data.list_real_thai_house,
+                    backgroundColor: 'rgba(54, 162, 235, 1)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderDash: [5, 5],
+                    borderWidth: 2
+                },
+                {
+                    label: 'list_pre_thai_house',
+                    data: data.list_pre_thai_house,
+                    backgroundColor: 'rgba(54, 162, 235, 1)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: 'list_real_thai_walk',
+                    data: data.list_real_thai_walk,
+                    backgroundColor: 'rgba(255, 99, 132, 1)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderDash: [5, 5],
+                    borderWidth: 2
+                },
+                {
+                    label: 'list_pre_thai_walk',
+                    data: data.list_pre_thai_walk,
+                    backgroundColor: 'rgba(255, 99, 132, 1)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 12,
+                    max: 40,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
